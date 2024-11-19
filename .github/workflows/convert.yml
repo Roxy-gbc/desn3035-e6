@@ -25,3 +25,38 @@ jobs:
         with:
           name: docs
           path: pdfs
+
+createrelease:
+    name: Create Release and Upload Artifact
+    needs: converttopdf
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create a new release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.sha }} # Using commit SHA as tag name
+          release_name: Release ${{ github.sha }}
+          draft: false
+          prerelease: false
+      
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: docs
+          path: downloaded_artifact
+
+      - name: List downloaded files
+        run: ls -R downloaded_artifact
+
+      - name: Upload artifact to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: downloaded_artifact
+          asset_name: docs.zip
+          asset_content_type: application/zip
