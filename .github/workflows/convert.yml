@@ -1,7 +1,5 @@
-# .github/workflows/convert-to-pdf.yml
-
 name: Docs to PDF
-# This workflow is triggered on pushes to the repository.
+
 on:
   push:
     branches:
@@ -18,55 +16,44 @@ jobs:
           input_dir: docs
           output_dir: pdfs
           images_dir: docs/images
-          # for example <img src="./images/file-name.png">
           image_import: ./images
-          # Default is true, can set to false to only get PDF files
           build_html: false
       - uses: actions/upload-artifact@v3
         with:
           name: docs
           path: pdfs
 
-  release:
+  createrelease:
     name: Create Release and Upload Artifact
-    runs-on: ubuntu-latest
     needs: converttopdf
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Download "docs" artifact from previous job
+      - name: Create a new release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.sha }} # Using commit SHA as tag name
+          release_name: Release ${{ github.sha }}
+          draft: false
+          prerelease: false
+      
+      - name: Download artifact
         uses: actions/download-artifact@v3
         with:
           name: docs
-          path: ./downloaded_docs
+          path: downloaded_artifact
 
       - name: List downloaded files
-        run: |
-          echo "Listing downloaded files:"
-          find ./downloaded_docs -type f
+        run: ls -R downloaded_artifact
 
-      - name: Generate random tag name
-        id: generate_tag
-        run: |
-          TAG_NAME="release-$(uuidgen)"
-          echo "Generated tag: $TAG_NAME"
-          echo "tag_name=$TAG_NAME" >> $GITHUB_ENV
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.tag_name }}
+      - name: Upload artifact to release
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload PDF to GitHub Release
-        uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./downloaded_docs/terms.pdf
-          asset_name: terms.pdf
-          asset_content_type: application/pdf
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          asset_path: downloaded_artifact
+          asset_name: docs.zip
+          asset_content_type: application/zip
